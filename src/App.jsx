@@ -1,17 +1,5 @@
-/* eslint-disable no-unused-vars */
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
 import "./App.css";
-import { Configuration, OpenAIApi } from "openai";
-
-const configuration = new Configuration({
-  organization: "org-Ia7U2sWBBpy6LxaZjoiA3cDn",
-  apiKey:
-    "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",
-});
-
-const openai = new OpenAIApi(configuration);
 
 function App() {
   const [message, setMessage] = useState("");
@@ -21,51 +9,69 @@ function App() {
   const chat = async (e, message) => {
     e.preventDefault();
 
+    if (!message) return;
     setIsTyping(true);
+    scrollTo(0, 1e10);
 
-    setChats(...chats, { role: "user", content: message });
+    let msgs = chats;
+    msgs.push({ role: "user", content: message });
+    setChats(msgs);
+
     setMessage("");
 
-    await openai
-      .createChat({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "You are chatgpt. You help me with my questions.",
-          },
-          ...chats,
-        ],
-      })
-      .then((result) => {
-        console.log(result);
+    fetch("http://localhost:8000/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        chats,
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        msgs.push(data.output);
+        setChats(msgs);
+        setIsTyping(false);
+        scrollTo(0, 1e10);
       })
       .catch((error) => {
-        console.error(error);
+        console.log(error);
       });
   };
 
   return (
     <main>
-      <h1>ChatGPT </h1>
+      <h1>ChatGPT</h1>
 
-      {isTyping ? (
-        <div>
-          <p>
-            <i>Typing</i>
-          </p>
-        </div>
-      ) : (
-        ""
-      )}
-      <form onSubmit={((e) => chat(e), message)}>
+      <section>
+        {chats && chats.length
+          ? chats.map((chat, index) => (
+              <p key={index} className={chat.role === "user" ? "user_msg" : ""}>
+                <span>
+                  <b>{chat.role.toUpperCase()}</b>
+                </span>
+                <span>:</span>
+                <span>{chat.content}</span>
+              </p>
+            ))
+          : ""}
+      </section>
+
+      <div className={isTyping ? "" : "hide"}>
+        <p>
+          <i>{isTyping ? "Typing" : ""}</i>
+        </p>
+      </div>
+
+      <form action="" onSubmit={(e) => chat(e, message)}>
         <input
           type="text"
           name="message"
           value={message}
-          placeholder="Type a messsage and hit enter"
+          placeholder="Type a message here and hit Enter..."
           onChange={(e) => setMessage(e.target.value)}
-        ></input>
+        />
       </form>
     </main>
   );
